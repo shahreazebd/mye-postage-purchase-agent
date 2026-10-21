@@ -5,11 +5,16 @@ import { chatSdkChannel, messageToUserContent } from "eve/channels/chat-sdk";
 
 export const { bot, channel, send } = chatSdkChannel({
   userName: "Postage Purchase Agent",
-  adapters: { whatsapp: createWhatsAppAdapter() },
+  adapters: {
+    whatsapp: createWhatsAppAdapter({
+      accessToken: process.env.WHATSAPP_ACCESS_TOKEN!,
+      appSecret: process.env.WHATSAPP_APP_SECRET!,
+      phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID!,
+      verifyToken: process.env.WHATSAPP_VERIFY_TOKEN!,
+    }),
+  },
   state: createMemoryState(),
-  // Hand every message to eve, even mid-reply, so eve can steer the running turn.
   concurrency: "concurrent",
-  // WhatsApp can't edit sent messages, so send each reply whole.
   streaming: false,
 });
 
