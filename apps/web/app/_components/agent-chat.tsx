@@ -2,8 +2,9 @@
 
 import type { UserContent } from "ai";
 import { useEveAgent } from "eve/react";
-import { AlertCircleIcon, BrainIcon, PlusIcon, SquareIcon } from "lucide-react";
-import { useRef, useState } from "react";
+import { AlertCircleIcon, BrainIcon, LogOutIcon, PlusIcon, SquareIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 import {
   Conversation,
   ConversationContent,
@@ -22,6 +23,7 @@ import {
 import { Shimmer } from "@/components/ai-elements/shimmer";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { getSession, logout } from "@/app/lib/fake-auth";
 import { AgentMessage } from "./agent-message";
 import { WEB_CHAT_AGENT } from "@/app/eve-agent";
 
@@ -35,9 +37,22 @@ export function AgentChat({
   readonly sessionId?: string;
   readonly sessionless?: boolean;
 }) {
+  const router = useRouter();
   const [cancellationError, setCancellationError] = useState<string>();
   const [hasInputText, setHasInputText] = useState(false);
   const hasSubmittedMessage = useRef(false);
+
+  // Read the fake-auth session from localStorage.
+  const [companyId, setCompanyId] = useState<string | null>(null);
+  useEffect(() => {
+    const session = getSession();
+    if (!session) {
+      router.replace("/login");
+      return;
+    }
+    setCompanyId(session.company.id);
+  }, [router]);
+
   const replaceSessionRoute = (nextSessionId: string) => {
     if (sessionId !== undefined) return;
     // Framework routers (Next.js, TanStack Router) patch window.history; navigating
@@ -49,6 +64,12 @@ export function AgentChat({
       `/s/${encodeURIComponent(nextSessionId)}`,
     );
   };
+
+  const handleLogout = () => {
+    logout();
+    router.replace("/login");
+  };
+
   const agent = useEveAgent({
     agent: WEB_CHAT_AGENT,
     prewarm: hasInputText,
@@ -60,6 +81,9 @@ export function AgentChat({
             streamIndex: 0,
           },
     resume: sessionId !== undefined,
+    // Forward the company ID as a request header on every turn.
+    // The eve channel's custom AuthFn reads this and sets principalId.
+    headers: companyId ? { "x-company-id": companyId } : undefined,
     onSessionChange(session) {
       if (hasSubmittedMessage.current && session !== undefined) {
         replaceSessionRoute(session.sessionId);
@@ -148,7 +172,7 @@ export function AgentChat({
   return (
     <main className="flex h-dvh flex-col overflow-hidden bg-background text-foreground">
       {showConversationLayout ? (
-        <ChatHeader canStartNewChat={activeSessionId !== undefined} />
+        <ChatHeader canStartNewChat={activeSessionId !== undefined} onLogout={handleLogout} />
       ) : null}
 
       {showConversationLayout ? (
@@ -258,24 +282,42 @@ function ErrorMessage({ message }: { readonly message: string }) {
   );
 }
 
-function ChatHeader({ canStartNewChat }: { readonly canStartNewChat: boolean }) {
+function ChatHeader({
+  canStartNewChat,
+  onLogout,
+}: {
+  readonly canStartNewChat: boolean;
+  readonly onLogout: () => void;
+}) {
   return (
     <header className="pointer-events-none fixed top-0 right-0 left-0 z-20 h-14">
       <div className="relative mx-auto flex h-full w-full max-w-3xl items-center justify-center bg-background px-24">
         <span className="truncate text-muted-foreground text-sm">{AGENT_NAME}</span>
-        {canStartNewChat ? (
+        <div className="pointer-events-auto fixed top-3 right-6 flex items-center gap-1">
+          {canStartNewChat ? (
+            <Button
+              aria-label="Start a new chat"
+              className="pr-4"
+              onClick={() => window.location.assign("/s")}
+              size="sm"
+              type="button"
+              variant="ghost"
+            >
+              <PlusIcon className="size-4" />
+              <span className="hidden font-normal text-sm sm:inline">New chat</span>
+            </Button>
+          ) : null}
           <Button
-            aria-label="Start a new chat"
-            className="pointer-events-auto fixed top-3 right-6 pr-4"
-            onClick={() => window.location.assign("/s")}
+            aria-label="Log out"
+            onClick={onLogout}
             size="sm"
             type="button"
             variant="ghost"
+            className="text-muted-foreground"
           >
-            <PlusIcon className="size-4" />
-            <span className="hidden font-normal text-sm sm:inline">New chat</span>
+            <LogOutIcon className="size-4" />
           </Button>
-        ) : null}
+        </div>
       </div>
     </header>
   );
