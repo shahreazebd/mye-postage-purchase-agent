@@ -13,6 +13,8 @@ function companyHeader(): AuthFn<Request> {
     const companyId = request.headers.get("x-company-id");
     if (!companyId) return null; // skip; fall through to next entry
 
+    console.log({ companyId });
+
     return {
       authenticator: "company-header",
       principalId: companyId,
@@ -34,4 +36,3 @@ export default eveChannel({
     placeholderAuth(),
   ],
 });
-

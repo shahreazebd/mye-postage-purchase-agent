@@ -4,7 +4,8 @@ import { createOpenRouter } from "@openrouter/ai-sdk-provider";
 const openrouter = createOpenRouter({
   apiKey: process.env.OPENROUTER_KEY,
 });
+
 export default defineAgent({
-  model: openrouter.chat("minimax/minimax-m3.1-flash:free"),
+  model: openrouter.chat("deepseek/deepseek-v4.1-flash-1017"),
   modelContextWindowTokens: 1_000_000,
 });

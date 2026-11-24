@@ -1,24 +1,26 @@
 import { defaultSlackAuth, slackChannel } from "eve/channels/slack";
 
 export default slackChannel({
-  credentials: {
-    botToken: process.env.SLACK_BOT_TOKEN!,
-    signingSecret: process.env.SLACK_SIGNING_SECRET!,
-  },
-  async onAppMention(ctx, message) {
-    console.log("[eve:slack] onAppMention received:", message.text);
-    return { auth: defaultSlackAuth(message, ctx) };
-  },
-  async onDirectMessage(ctx, message) {
-    console.log("[eve:slack] onDirectMessage received:", message.text);
-    return { auth: defaultSlackAuth(message, ctx) };
-  },
   async onMessage(ctx, message) {
-    console.log("[eve:slack] onMessage received:", message.text);
-    if (message.author?.isBot) return null;
-    return { auth: defaultSlackAuth(message, ctx) };
-  },
-  async onEvent(ctx, event) {
-    console.log("[eve:slack] onEvent received:", (event as { type?: string }).type);
+    if (message.author?.isBot !== false) return null;
+    const auth = defaultSlackAuth(message, ctx);
+    const isDirectMessage = message.raw.channel_type === "im";
+
+    if (ctx.isBotMentioned() || ctx.slack.codeChannel || isDirectMessage) {
+      return { auth };
+    }
+
+    // Follow threads that already have a session, including message edits
+    if (ctx.edit || (message.threadTs !== message.ts && (await ctx.isSubscribed()))) {
+      return {
+        auth,
+        status: "deferred",
+        guidance:
+          "You are part of this Slack thread, so you see replies people send each other. This " +
+          "reply doesn't mention you. Answer only if it's meant for you; otherwise call `no_reply`.",
+      };
+    }
+
+    return null;
   },
 });
